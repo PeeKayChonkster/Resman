@@ -93,7 +93,7 @@ private:
         ifstream.close();
         std::string str(std::move(ss.str()));
         char* buf = new char[str.length()];
-        std::copy(str.begin(), str.end(), buf);
+        buf = strcpy(buf, str.c_str());
         //! emplace in datamap isn't working for some reason
         data.insert({ path, Resfile(path, str.length(), buf) });
         return true;
