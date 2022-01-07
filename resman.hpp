@@ -43,6 +43,7 @@ struct Resfile
         size = other.size;
         other.size = 0;
         data = std::move(other.data);
+        other.data = nullptr;
     }
     Resfile& operator=(const Resfile& other) = delete;
     Resfile& operator=(Resfile&& other)
@@ -54,6 +55,8 @@ struct Resfile
             size = other.size;
             other.size = 0;
             data = std::move(other.data);
+            other.data = nullptr;
+            return *this;
         }
     }
 };
@@ -89,7 +92,8 @@ private:
         unsigned int size = ss.str().length();
         char* buf = new char[size];
         std::copy(ss.str().begin(), ss.str().end(), buf);
-        data.emplace(path, path, size, buf);
+        //! emplace in datamap isn't working for some reason
+        data.insert({ path, Resfile(path, size, buf) });
         return true;
     }
 public:
@@ -148,7 +152,8 @@ public:
                         // write current chunk to the datamap
                         char* buf = new char[size];
                         std::copy(rawData.begin(), rawData.end(), buf);
-                        data.emplace(chunkPath, chunkPath, size, buf);
+                        //! emplace in datamap isn't working for some reason
+                        data.insert({ chunkPath, Resfile(chunkPath, size, buf) });
                         chunkPath.clear();
                         size = 0;
                     }
@@ -166,24 +171,29 @@ public:
                 else
                 {
                     // bring file pointer 4 chars back
-                    ifstream.seekg(static_cast<int>(ifstream.tellg()) - 5);
+                    ifstream.seekg(static_cast<int>(ifstream.tellg()) - 4);
                 }
             }
             rawData.push_back(c);
             size++;
         }
+        // insert last chunk
+        char* buf = new char[size];
+        std::copy(rawData.begin(), rawData.end(), buf);
+        data.insert({ chunkPath, Resfile(chunkPath, size, buf) });
         ifstream.close();
         // TESTING
-        for(auto iter = data.begin(); iter != data.end(); iter++)
-        {
-            std::cout << iter->first << std::endl;
-            std::cout << iter->second.path << std::endl;
-            std::cout << iter->second.size << std::endl;
-            std::cout << iter->second.data << std::endl;
-        }
+        // for(auto iter = data.begin(); iter != data.end(); iter++)
+        // {
+        //     std::cout << iter->first << std::endl;
+        //     std::cout << iter->second.path << std::endl;
+        //     std::cout << iter->second.size << std::endl;
+        //     std::cout << iter->second.data.get() << std::endl;
+        // }
         return true;
     }
-    std::optional<Resfile> getFile(std::string path)
+
+    std::optional<Resfile*> getFile(std::string path)
     {
         auto iter = data.find(path);
         if(iter == data.end())
@@ -197,12 +207,12 @@ public:
             else
             {
                 // foung file on disk, appended it to the data map
-                return { iter->second };
+                return { &iter->second };
             }
         }
         else
         {
-            return { iter->second };
+            return { &iter->second };
         }
     }
 };
