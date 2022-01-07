@@ -11,11 +11,6 @@
 #include <unordered_map>
 #include <memory>
 
-// TEMP, DELETE LATER
-#include <chrono>
-#include <thread>
-//
-
 namespace chen
 {
 
@@ -59,23 +54,30 @@ struct Resfile
             return *this;
         }
     }
+
+    inline void print(std::ostream& stream)
+    {
+        stream << "Path: " << path << std::endl;
+        stream << "Size: " << size << std::endl;
+        stream << "Data: \n" << data.get() << std::endl;
+    }
 };
 
 class Resman
 {
 private:
-    inline static const std::string packageName = "package.res";
+    inline static const std::string packageName = "resman_package.res";
     std::string packagePath;
     const std::string pathIdendifier = "%PATH";
     std::unordered_map<std::string, Resfile> data;
 
-    static bool isValidExtension(fs::path path)
+    inline static bool isValidExtension(fs::path path)
     {
         return path.extension() != ".res" && 
             path.extension() != ".cpp" && 
             path.extension() != ".hpp" &&
             path.extension() != ".exe" &&
-            path.extension() != ".h" 
+            path.extension() != ".h"
             ;
     }
 
@@ -89,18 +91,18 @@ private:
         std::stringstream ss;
         ss << ifstream.rdbuf();
         ifstream.close();
-        unsigned int size = ss.str().length();
-        char* buf = new char[size];
-        std::copy(ss.str().begin(), ss.str().end(), buf);
+        std::string str(std::move(ss.str()));
+        char* buf = new char[str.length()];
+        std::copy(str.begin(), str.end(), buf);
         //! emplace in datamap isn't working for some reason
-        data.insert({ path, Resfile(path, size, buf) });
+        data.insert({ path, Resfile(path, str.length(), buf) });
         return true;
     }
 public:
     bool packFolder(std::string folderPath, std::string outPath = "." + separator + packageName)
     {
         fs::path fPath(folderPath);
-        if(!fs::exists(fPath)) return false;
+        if(!fs::exists(fPath) || !fs::is_directory(fPath)) return false;
         packagePath = outPath;
         std::ofstream ofstream(outPath, std::ios::binary);
         if(!ofstream.good()) return false;
@@ -111,9 +113,9 @@ public:
             //  skip directories, executables(unix) and files with unwanted extensions
             if(!iter->is_directory() && fs::status(iter->path()).permissions() != fs::perms::owner_exec && isValidExtension(iter->path())) 
             {
-                ifstream.open(iter->path(), std::ios::binary);
-                ofstream << pathIdendifier << iter->path() << std::endl;
-                ofstream << ifstream.rdbuf() << std::endl;
+                ifstream.open(iter->path().string(), std::ios::binary);
+                ofstream << pathIdendifier << iter->path().string() << std::endl;
+                ofstream << ifstream.rdbuf();
                 ifstream.close();
             }
             ++iter;
@@ -128,8 +130,6 @@ public:
         std::ifstream ifstream(packagePath, std::ios::binary);
         // char buffer
         char c = 0;
-        // data chunk size
-        unsigned int size = 0u;
         std::string rawData;
         // path of current chunk
         std::string chunkPath;
@@ -150,12 +150,11 @@ public:
                     if(!chunkPath.empty())
                     {
                         // write current chunk to the datamap
-                        char* buf = new char[size];
-                        std::copy(rawData.begin(), rawData.end(), buf);
+                        char* buf = new char[rawData.length()];
+                        buf = strcpy(buf, rawData.c_str());
                         //! emplace in datamap isn't working for some reason
-                        data.insert({ chunkPath, Resfile(chunkPath, size, buf) });
+                        data.insert({ chunkPath, Resfile(chunkPath, rawData.length(), buf) });
                         chunkPath.clear();
-                        size = 0;
                     }
                     // clear chunk buffer
                     rawData.clear();
@@ -171,48 +170,47 @@ public:
                 else
                 {
                     // bring file pointer 4 chars back
-                    ifstream.seekg(static_cast<int>(ifstream.tellg()) - 4);
+                    ifstream.seekg(-4, std::ios::cur);
                 }
             }
             rawData.push_back(c);
-            size++;
         }
         // insert last chunk
-        char* buf = new char[size];
-        std::copy(rawData.begin(), rawData.end(), buf);
-        data.insert({ chunkPath, Resfile(chunkPath, size, buf) });
+        char* buf = new char[rawData.length()];
+        buf = strcpy(buf, rawData.c_str());
+        data.insert({ chunkPath, Resfile(chunkPath, rawData.length(), buf) });
         ifstream.close();
-        // TESTING
-        // for(auto iter = data.begin(); iter != data.end(); iter++)
-        // {
-        //     std::cout << iter->first << std::endl;
-        //     std::cout << iter->second.path << std::endl;
-        //     std::cout << iter->second.size << std::endl;
-        //     std::cout << iter->second.data.get() << std::endl;
-        // }
         return true;
     }
 
-    std::optional<Resfile*> getFile(std::string path)
+    Resfile* getFile(std::string path)
     {
+        fs::path p(path);
+        p.make_preferred();
+        path = p.string();
         auto iter = data.find(path);
         if(iter == data.end())
         {
-            // didn't find data in map, search on disk
+            // didn't find data in datamap, search on disk
             if(!appendData(path))
             {
-                // didn't find on disk OR file already exists in data map
-                return std::nullopt;
+                // didn't find on disk OR file already exists in datamap
+                std::cerr << "Didn't find file \"" << path << "\" in datamap nor on disk." << std::endl;
+                return nullptr;
             }
             else
             {
-                // foung file on disk, appended it to the data map
-                return { &iter->second };
+                // found file on disk, appended it to the datamap
+                //std::cout << "Found file on disk. Added to the datamap." << std::endl;
+                auto iter = data.find(path);
+                return &iter->second;
             }
         }
         else
         {
-            return { &iter->second };
+            // file found in the datamap
+            //std::cout << "Found file in the datamap." << std::endl;
+            return &iter->second;
         }
     }
 };
