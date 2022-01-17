@@ -67,9 +67,9 @@ class ResmanStatic
 {
 private:
     inline static const std::string packageName = "resman_package.res";
-    static std::string packagePath;
+    inline static std::string packagePath;
     inline static const std::string pathIdendifier = "%PATH";
-    static std::unordered_map<std::string, Resfile> data;
+    inline static std::unordered_map<std::string, Resfile> data;
 
     inline static bool isValidExtension(fs::path path)
     {
