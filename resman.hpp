@@ -99,8 +99,9 @@ private:
         return true;
     }
 public:
-    static bool packFolder(std::string folderPath, std::string outPath = "." + separator + packageName)
+    static bool packFolder(std::string folderPath, std::string outPath = ".")
     {
+        outPath += separator + packageName;
         fs::path fPath(folderPath);
         fPath.make_preferred();
         if(!fs::exists(fPath) || !fs::is_directory(fPath)) return false;
@@ -125,8 +126,9 @@ public:
         return true;
     }
 
-    static bool loadResourceFile(std::string path = "." + separator + packageName)
+    static bool loadResourceFile(std::string path = ".")
     {
+        path += separator + packageName;
         packagePath = path;
         std::ifstream ifstream(packagePath, std::ios::binary);
         if(!ifstream.good()) return false;
