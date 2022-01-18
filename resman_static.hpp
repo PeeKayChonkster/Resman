@@ -26,10 +26,10 @@ struct Resfile
 {
     std::string path;
     unsigned int size;
-    std::unique_ptr<char[]> data;
+    std::unique_ptr<unsigned char[]> data;
 
     Resfile(): Resfile("", 0, nullptr) {}
-    Resfile(std::string p, unsigned int s, char* d): path(p), size(s), data(d) {}
+    Resfile(std::string p, unsigned int s, unsigned char* d): path(p), size(s), data(d) {}
     Resfile(const Resfile& other) = delete;
     Resfile(Resfile&& other)
     {
@@ -67,7 +67,7 @@ class ResmanStatic
 {
 private:
     inline static const std::string packageName = "resman_package.res";
-    inline static std::string packagePath;
+    static std::string packagePath;
     inline static const std::string pathIdendifier = "%PATH";
     inline static std::unordered_map<std::string, Resfile> data;
 
@@ -92,8 +92,8 @@ private:
         ss << ifstream.rdbuf();
         ifstream.close();
         std::string str(std::move(ss.str()));
-        char* buf = new char[str.length()];
-        buf = strcpy(buf, str.c_str());
+        unsigned char* buf = new unsigned char[str.length()];
+        std::copy(str.begin(), str.end(), buf);
         //! emplace in datamap isn't working for some reason
         data.insert({ path, Resfile(path, str.length(), buf) });
         return true;
@@ -150,8 +150,8 @@ public:
                     if(!chunkPath.empty())
                     {
                         // write current chunk to the datamap
-                        char* buf = new char[rawData.length()];
-                        buf = strcpy(buf, rawData.c_str());
+                        unsigned char* buf = new unsigned char[rawData.length()];
+                        std::copy(rawData.begin(), rawData.end(), buf);
                         //! emplace in datamap isn't working for some reason
                         data.insert({ chunkPath, Resfile(chunkPath, rawData.length(), buf) });
                         chunkPath.clear();
@@ -176,8 +176,8 @@ public:
             rawData.push_back(c);
         }
         // insert last chunk
-        char* buf = new char[rawData.length()];
-        buf = strcpy(buf, rawData.c_str());
+        unsigned char* buf = new unsigned char[rawData.length()];
+        std::copy(rawData.begin(), rawData.end(), buf);
         data.insert({ chunkPath, Resfile(chunkPath, rawData.length(), buf) });
         ifstream.close();
         return true;
